@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy==2.0
+SQLAlchemy==1.1.10
+gunicorn
+requests
+psycopg2
+marshmallow==2.13.5

@@ -1,0 +1,25 @@
+version: "2"
+services:
+  data:
+    image: postgres
+    volumes:
+      - /var/lib/postgresql
+
+  postgres:
+    restart: always
+    image: postgres
+    volumes_from:
+      - data
+    ports:
+      - "5432:5432"
+
+  web:
+    restart: always
+    build: .
+    volumes:
+      - /Users/zach/Dev/flavor-helper:/app
+    ports:
+      - "5000:5000"
+    env_file: env
+    depends_on:
+      - postgres

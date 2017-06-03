@@ -1,65 +1,74 @@
 from config import Config
 import datetime
 import json
-from marshmallow import Schema, fields
-from sqlalchemy.ext.declarative import declarative_base as real_declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, create_engine
-from sqlalchemy.orm import sessionmaker
-
-# Create engine and session
-engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-Session = sessionmaker(bind=engine)
-
-declarative_base = lambda cls: real_declarative_base(cls=cls)
+import psycopg2 as pg2
+import psycopg2.extras
 
 def datetime_handler(x):
 	if isinstance(x, datetime.datetime):
 		return x.isoformat()
 
-@declarative_base
-class Base(object):
-	
+class Connection():
+	connection = None
+	cursor = None
 
-	# @property
-	# def columns(self):
-	# 	return [ c.name for c in self.__table__.columns ]
+	def __init__(self):
+		self.connection = pg2.connect(
+			dbname=Config.DB_NAME,
+			user=Config.DB_USER,
+			password=Config.DB_PASS,
+			host=Config.DB_HOST,
+			port=Config.DB_PORT
+		)
+		self.cursor = self.connection.cursor(cursor_factory = psycopg2.extras.RealDictCursor)
 
-	# @property
-	# def columnitems(self):
-	# 	return dict([ (c, self[c]) for c in self.columns ])
+	def query(self, sql, binds=None):
+		self.cursor.execute(sql, (binds,))
+		return self.cursor
 
-	@property
-	def tojson(self):
-		return json.dumps(self.__dict__, default=datetime_handler)
+class BaseModel():
+	__tablename__ = ''
+	_pk = 'id'
+	conn = None
 
+	def __init__(self):
+		self.conn = Connection()
+
+	def get(self, id, as_json=True):
+		query = 'SELECT * FROM {0} WHERE {1} = %s'.format(self.__tablename__, self._pk)
+
+		row = self.conn.query(query, id).fetchone()
+		if (as_json):
+			row = self.to_json(row)
+		
+		return row
+
+	def get_all(self, as_json=True):
+		query = 'SELECT * FROM {0}'.format(self.__tablename__)
+
+		rows = self.conn.query(query).fetchall()
+		if (as_json):
+			rows = self.to_json(rows)
+
+		return rows
+
+	def to_json(self, result):
+		return json.dumps(result, default=datetime_handler)
 
 
 # Define classes
-class Ingredient(Base):
+class Ingredient(BaseModel):
 	__tablename__ = 'ingredients'
-
-	id = Column(Integer, primary_key=True)
-	name = Column(String, nullable=False)
-	created_at = Column(DateTime, nullable=False)
-
-	def __init__(self, name):
-		self.name = name
-		self.created_at = datetime.datetime.now()
+	_pk = 'id'
 
 
-class IngredientSchema(Schema):
-	name = fields.Str()
-	created_at = fields.DateTime()
-
-
-class IngredientConnections(Base):
+class IngredientConnections(BaseModel):
 	__tablename__ = 'ingredient_connections'
+	_pk = 'ingredient1'
 
-	ingredient1 = Column(Integer, primary_key=True)
-	ingredient2 = Column(Integer, primary_key=True)
-	strength = Column(Integer, nullable=False)
 
-	def __init__(self, ingredient1, ingredient2, strength=1):
-		self.ingredient1 = ingredient1
-		self.ingredient2 = ingredient2
-		self.strength = strength
+
+	# def __init__(self, ingredient1, ingredient2, strength=1):
+	# 	self.ingredient1 = ingredient1
+	# 	self.ingredient2 = ingredient2
+	# 	self.strength = strength

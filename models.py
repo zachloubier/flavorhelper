@@ -24,6 +24,7 @@ class Connection():
 
 	def query(self, sql, binds=None):
 		self.cursor.execute(sql, (binds,))
+		self.connection.commit()
 		return self.cursor
 
 class BaseModel():
